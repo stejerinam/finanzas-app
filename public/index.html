@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finanzas · Estado de Cuenta BBVA</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root {
+    --bg: #0e0e0f;
+    --surface: #16171a;
+    --surface2: #1e2025;
+    --border: #2a2c32;
+    --accent: #c8f05a;
+    --accent2: #5af0c8;
+    --text: #f0ede8;
+    --muted: #6b6f7a;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Outfit',sans-serif; min-height:100vh; overflow-x:hidden; }
+  .bg-grid { position:fixed; inset:0; pointer-events:none; background-image:linear-gradient(rgba(200,240,90,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(200,240,90,0.03) 1px,transparent 1px); background-size:48px 48px; }
+
+  /* UPLOAD */
+  #upload-screen { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px 20px; position:relative; z-index:1; }
+  .upload-card { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:56px 48px; max-width:520px; width:100%; text-align:center; }
+  .logo-mark { width:56px; height:56px; background:var(--accent); border-radius:14px; display:flex; align-items:center; justify-content:center; margin:0 auto 28px; font-size:24px; }
+  h1.app-title { font-family:'DM Serif Display',serif; font-size:2.2rem; line-height:1.1; margin-bottom:8px; }
+  h1.app-title em { color:var(--accent); font-style:italic; }
+  .upload-subtitle { color:var(--muted); font-size:0.95rem; margin-bottom:40px; line-height:1.6; }
+  .drop-zone { border:1.5px dashed var(--border); border-radius:14px; padding:40px 24px; cursor:pointer; transition:all 0.2s; position:relative; }
+  .drop-zone:hover,.drop-zone.dragover { border-color:var(--accent); background:rgba(200,240,90,0.04); }
+  .drop-zone input[type="file"] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+  .drop-icon { font-size:2.5rem; margin-bottom:12px; }
+  .drop-label { font-size:0.9rem; color:var(--muted); line-height:1.6; }
+  .drop-label strong { color:var(--accent); }
+  .privacy-note { margin-top:24px; font-size:0.78rem; color:var(--muted); display:flex; align-items:center; justify-content:center; gap:6px; }
+
+  /* PROGRESS */
+  #progress-screen { min-height:100vh; display:none; flex-direction:column; align-items:center; justify-content:center; padding:40px; text-align:center; }
+  .progress-title { font-family:'DM Serif Display',serif; font-size:1.8rem; margin-bottom:12px; }
+  .progress-sub { color:var(--muted); font-size:0.9rem; margin-bottom:40px; }
+  .steps-list { list-style:none; text-align:left; max-width:360px; width:100%; }
+  .steps-list li { display:flex; align-items:center; gap:14px; padding:14px 0; border-bottom:1px solid var(--border); font-size:0.9rem; color:var(--muted); transition:color 0.3s; }
+  .steps-list li.active { color:var(--text); }
+  .steps-list li.done { color:var(--accent); }
+  .step-icon { width:28px; height:28px; border-radius:50%; border:1.5px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-family:'DM Mono',monospace; flex-shrink:0; transition:all 0.3s; }
+  .steps-list li.active .step-icon { border-color:var(--accent); color:var(--accent); }
+  .steps-list li.done .step-icon { background:var(--accent); border-color:var(--accent); color:#000; }
+  .spinner { width:16px; height:16px; border:2px solid transparent; border-top-color:var(--accent); border-radius:50%; animation:spin 0.8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* DASHBOARD */
+  #dashboard-screen { display:none; min-height:100vh; }
+  .dash-header { padding:20px 40px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; background:var(--bg); z-index:100; }
+  .dash-logo { font-family:'DM Serif Display',serif; font-size:1.3rem; display:flex; align-items:center; gap:10px; }
+  .dash-logo span { width:28px; height:28px; background:var(--accent); border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:14px; }
+  .header-period { font-family:'DM Mono',monospace; font-size:0.78rem; color:var(--muted); background:var(--surface); border:1px solid var(--border); padding:6px 14px; border-radius:20px; }
+  .btn-reset { background:transparent; border:1px solid var(--border); color:var(--muted); padding:7px 16px; border-radius:8px; font-size:0.8rem; cursor:pointer; font-family:'Outfit',sans-serif; transition:all 0.2s; }
+  .btn-reset:hover { border-color:var(--accent); color:var(--accent); }
+
+  .dash-body { padding:28px 40px; max-width:1600px; margin:0 auto; }
+
+  /* SUMMARY ROW */
+  .summary-row { display:grid; grid-template-columns:1.5fr 1.3fr 1fr 1fr 1fr; gap:14px; margin-bottom:24px; }
+  .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px 22px; }
+  .stat-card.hl { border-color:rgba(200,240,90,0.3); background:rgba(200,240,90,0.03); }
+  .stat-card.msi-card { border-color:rgba(90,240,200,0.3); background:rgba(90,240,200,0.03); }
+  .stat-label { font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px; font-family:'DM Mono',monospace; }
+  .stat-value { font-family:'DM Serif Display',serif; font-size:1.7rem; letter-spacing:-0.5px; line-height:1; }
+  .stat-value.ac { color:var(--accent); }
+  .stat-value.mc { color:var(--accent2); }
+  .stat-sub { font-size:0.74rem; color:var(--muted); margin-top:5px; }
+  .msi-items { margin-top:10px; display:flex; flex-direction:column; gap:4px; }
+  .msi-row { display:flex; justify-content:space-between; align-items:center; padding:4px 8px; background:rgba(90,240,200,0.06); border-radius:6px; font-size:0.73rem; }
+  .msi-row-name { color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:170px; }
+  .msi-row-val { font-family:'DM Mono',monospace; color:var(--accent2); flex-shrink:0; margin-left:8px; }
+  /* Payment breakdown inside main stat card */
+  .pay-divider { border:none; border-top:1px solid rgba(200,240,90,0.15); margin:10px 0 8px; }
+  .pay-line { display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; margin-bottom:5px; }
+  .pay-line-label { color:var(--muted); }
+  .pay-line-val { font-family:'DM Mono',monospace; }
+  .pay-line-val.go-msi { color:var(--accent2); }
+  .pay-line-val.go-cash { color:var(--accent); }
+  .pay-highlight { display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding:7px 10px; background:rgba(200,240,90,0.08); border:1px solid rgba(200,240,90,0.2); border-radius:8px; font-size:0.8rem; }
+  .pay-highlight-label { color:var(--text); font-weight:500; }
+  .pay-highlight-val { font-family:'DM Mono',monospace; color:var(--accent); font-size:0.9rem; font-weight:600; }
+
+  /* MAIN ROW: categories + transactions side by side, equal height */
+  .main-row { display:grid; grid-template-columns:300px 1fr; gap:20px; margin-bottom:24px; align-items:stretch; height:620px; }
+  .panel { background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; display:flex; flex-direction:column; }
+  .panel-header { padding:16px 22px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; flex-shrink:0; }
+  .panel-title { font-size:0.84rem; font-weight:500; }
+  .panel-badge { font-family:'DM Mono',monospace; font-size:0.7rem; color:var(--muted); background:var(--surface2); padding:3px 10px; border-radius:20px; white-space:nowrap; }
+  /* Left panel: cat list scrolls */
+  #cat-panel { min-height:0; }
+  #cat-panel .panel-scroll { overflow-y:auto; flex:1; min-height:0; }
+  #cat-panel .panel-scroll::-webkit-scrollbar { width:4px; }
+  #cat-panel .panel-scroll::-webkit-scrollbar-track { background:transparent; }
+  #cat-panel .panel-scroll::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+  /* Right panel: table body scrolls */
+  #txn-panel { min-height:0; }
+  #txn-panel .panel-scroll { overflow-y:auto; flex:1; min-height:0; }
+  #txn-panel .panel-scroll::-webkit-scrollbar { width:4px; }
+  #txn-panel .panel-scroll::-webkit-scrollbar-track { background:transparent; }
+  #txn-panel .panel-scroll::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+  /* CAT BARS */
+  .cat-list { padding:14px 18px; }
+  .cat-item { margin-bottom:12px; cursor:pointer; }
+  .cat-item:last-child { margin-bottom:0; }
+  .cat-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; }
+  .cat-name { display:flex; align-items:center; gap:8px; font-size:0.82rem; }
+  .cat-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+  .cat-amount { font-family:'DM Mono',monospace; font-size:0.8rem; }
+  .cat-pct { font-size:0.7rem; color:var(--muted); margin-left:4px; }
+  .cat-bar-bg { height:4px; background:var(--surface2); border-radius:3px; overflow:hidden; }
+  .cat-bar-fill { height:100%; border-radius:3px; transition:width 0.9s cubic-bezier(0.16,1,0.3,1); }
+  /* Otros nudge inside cat list */
+  .otros-nudge { margin:10px 18px 14px; padding:10px 13px; background:rgba(240,200,90,0.06); border:1px solid rgba(240,200,90,0.2); border-radius:10px; font-size:0.76rem; color:#f0c85a; display:flex; align-items:flex-start; gap:8px; }
+  .otros-nudge-icon { font-size:1rem; flex-shrink:0; margin-top:1px; }
+  .otros-nudge-text { line-height:1.5; }
+  .otros-nudge-text strong { display:block; margin-bottom:2px; font-size:0.78rem; }
+
+  /* TXN TABLE */
+  .search-bar { padding:12px 18px; border-bottom:1px solid var(--border); display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .search-input { flex:1; min-width:140px; background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:7px 12px; border-radius:9px; font-family:'Outfit',sans-serif; font-size:0.83rem; outline:none; transition:border-color 0.2s; }
+  .search-input:focus { border-color:var(--accent); }
+  .search-input::placeholder { color:var(--muted); }
+  .filter-sel { background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:7px 11px; border-radius:9px; font-family:'Outfit',sans-serif; font-size:0.79rem; outline:none; cursor:pointer; }
+  /* Sort toggle buttons */
+  .sort-group { display:flex; gap:4px; margin-left:auto; }
+  .sort-btn { background:transparent; border:1px solid var(--border); color:var(--muted); padding:6px 12px; border-radius:8px; font-size:0.76rem; cursor:pointer; font-family:'DM Mono',monospace; transition:all 0.18s; white-space:nowrap; }
+  .sort-btn.active { border-color:var(--accent); color:var(--accent); background:rgba(200,240,90,0.07); }
+  .sort-btn:hover:not(.active) { border-color:#3a3d46; color:var(--text); }
+  .txn-table { width:100%; border-collapse:collapse; }
+  .txn-table th { text-align:left; padding:9px 18px; font-size:0.67rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); font-weight:400; font-family:'DM Mono',monospace; border-bottom:1px solid var(--border); background:var(--surface); }
+  .txn-row { border-bottom:1px solid var(--border); transition:background 0.12s; }
+  .txn-row:hover { background:var(--surface2); }
+  .txn-row:last-child { border-bottom:none; }
+  .txn-row td { padding:9px 18px; font-size:0.845rem; vertical-align:middle; }
+  .txn-date { font-family:'DM Mono',monospace; font-size:0.74rem; color:var(--muted); white-space:nowrap; }
+  .cat-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:20px; font-size:0.72rem; background:var(--surface2); border:1px solid var(--border); cursor:pointer; transition:border-color 0.15s; white-space:nowrap; }
+  .cat-badge:hover { border-color:var(--accent); }
+  /* Otros badge gets a warning tint */
+  .cat-badge.otros-warn { border-color:rgba(240,200,90,0.35); color:#f0c85a !important; }
+  .txn-amount { font-family:'DM Mono',monospace; font-size:0.83rem; text-align:right; white-space:nowrap; }
+  .msi-tag { font-size:0.62rem; background:rgba(90,240,200,0.1); color:var(--accent2); border:1px solid rgba(90,240,200,0.2); padding:2px 6px; border-radius:4px; margin-left:5px; vertical-align:middle; }
+
+  /* DROPDOWN */
+  .cat-dd { position:fixed; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:6px; z-index:300; min-width:185px; box-shadow:0 16px 48px rgba(0,0,0,0.7); display:none; }
+  .cat-opt { padding:7px 11px; border-radius:8px; font-size:0.82rem; cursor:pointer; display:flex; align-items:center; gap:9px; transition:background 0.1s; }
+  .cat-opt:hover { background:var(--surface2); }
+
+  /* TOAST */
+  .toast { position:fixed; bottom:24px; right:24px; background:var(--accent); color:#000; padding:10px 16px; border-radius:9px; font-size:0.82rem; font-weight:500; transform:translateY(70px); opacity:0; transition:all 0.3s; z-index:500; }
+  .toast.show { transform:translateY(0); opacity:1; }
+
+
+  @media(max-width:1100px){ .main-row{grid-template-columns:1fr;} .summary-row{grid-template-columns:repeat(3,1fr);} }
+  @media(max-width:680px){ .summary-row{grid-template-columns:1fr 1fr;} .dash-body{padding:16px;} }
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+
+<!-- UPLOAD -->
+<div id="upload-screen">
+  <div class="upload-card">
+    <div class="logo-mark">💸</div>
+    <h1 class="app-title">Tu dinero,<br><em>al descubierto.</em></h1>
+    <p class="upload-subtitle">Sube tu estado de cuenta BBVA en PDF. Todo se procesa en tu navegador — tus datos no salen de tu dispositivo.</p>
+    <div class="drop-zone" id="drop-zone">
+      <input type="file" id="file-input" accept=".pdf">
+      <div class="drop-icon">📄</div>
+      <div class="drop-label"><strong>Elige tu estado de cuenta</strong><br>o arrastra el PDF aquí · Solo BBVA México</div>
+    </div>
+    <p class="privacy-note">🔒 Solo se envían nombres de comercios a la IA — nunca número de tarjeta, RFC ni CLABE.</p>
+  </div>
+</div>
+
+<!-- PROGRESS -->
+<div id="progress-screen">
+  <p class="progress-title">Analizando tu estado de cuenta</p>
+  <p class="progress-sub">Esto tarda unos segundos…</p>
+  <ul class="steps-list">
+    <li id="step-1"><div class="step-icon">1</div>Leyendo el PDF</li>
+    <li id="step-2"><div class="step-icon">2</div>Extrayendo transacciones</li>
+    <li id="step-3"><div class="step-icon">3</div>Categorizando con IA</li>
+    <li id="step-4"><div class="step-icon">4</div>Construyendo tu dashboard</li>
+  </ul>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard-screen">
+  <header class="dash-header">
+    <div class="dash-logo"><span>💸</span>Finanzas</div>
+    <div class="header-period" id="header-period">—</div>
+    <button class="btn-reset" onclick="resetApp()">↩ Nuevo archivo</button>
+  </header>
+  <div class="dash-body">
+
+    <!-- Summary -->
+    <div class="summary-row">
+      <div class="stat-card hl">
+        <div class="stat-label">Total cargado al periodo</div>
+        <div class="stat-value ac" id="stat-total">—</div>
+        <div class="stat-sub" id="stat-period">—</div>
+        <hr class="pay-divider">
+        <div class="pay-line">
+          <span class="pay-line-label">Compras regulares en efectivo</span>
+          <span class="pay-line-val go-cash" id="pay-cash">—</span>
+        </div>
+        <div class="pay-line">
+          <span class="pay-line-label">Nuevas compras → van a MSI</span>
+          <span class="pay-line-val go-msi" id="pay-new-msi">—</span>
+        </div>
+        <div class="pay-line" id="pay-new-msi-detail-row" style="display:none">
+          <span class="pay-line-label" id="pay-new-msi-detail" style="font-size:0.7rem;color:var(--muted);padding-left:8px;line-height:1.5"></span>
+        </div>
+        <div class="pay-highlight">
+          <span class="pay-highlight-label">💳 Pago para no generar intereses</span>
+          <span class="pay-highlight-val" id="pay-no-interest">—</span>
+        </div>
+      </div>
+      <div class="stat-card msi-card">
+        <div class="stat-label">Deuda diferida a meses (MSI)</div>
+        <div class="stat-value mc" id="stat-msi">—</div>
+        <div class="stat-sub" id="stat-msi-sub">—</div>
+        <div class="msi-items" id="msi-items"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Transacciones</div>
+        <div class="stat-value" id="stat-count">—</div>
+        <div class="stat-sub">movimientos regulares</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Promedio por día</div>
+        <div class="stat-value" id="stat-avg">—</div>
+        <div class="stat-sub">28 días en el periodo</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Categoría mayor</div>
+        <div class="stat-value" id="stat-top" style="font-size:1.15rem">—</div>
+        <div class="stat-sub" id="stat-top-amt">—</div>
+      </div>
+    </div>
+
+    <!-- Main: categories left, transactions right -->
+    <div class="main-row">
+      <!-- Left: category breakdown -->
+      <div class="panel" id="cat-panel">
+        <div class="panel-header">
+          <span class="panel-title">Por categoría</span>
+          <span class="panel-badge" id="cat-count">—</span>
+        </div>
+        <div class="panel-scroll">
+          <div id="otros-nudge-slot"></div>
+          <div class="cat-list" id="cat-list"></div>
+        </div>
+      </div>
+
+      <!-- Right: transaction table -->
+      <div class="panel" id="txn-panel">
+        <div class="panel-header">
+          <span class="panel-title">Todas las transacciones</span>
+          <span class="panel-badge" id="txn-count">—</span>
+          <div class="sort-group">
+            <button class="sort-btn" id="sort-amt" onclick="setSort('amount')" title="Ordenar por monto">↓ Monto</button>
+            <button class="sort-btn" id="sort-date" onclick="setSort('date')" title="Ordenar por fecha">📅 Fecha</button>
+          </div>
+        </div>
+        <div class="search-bar" style="flex-shrink:0">
+          <input class="search-input" id="search" placeholder="Buscar comercio…" oninput="filterTxns()">
+          <select class="filter-sel" id="cat-filter" onchange="filterTxns()">
+            <option value="">Todas las categorías</option>
+          </select>
+          <select class="filter-sel" id="type-filter" onchange="filterTxns()">
+            <option value="">Regular + MSI</option>
+            <option value="regular">Solo regular</option>
+            <option value="msi">Solo MSI</option>
+          </select>
+        </div>
+        <div class="panel-scroll">
+          <table class="txn-table">
+            <thead>
+              <tr>
+                <th style="position:sticky;top:0;z-index:5;background:var(--surface)">Fecha</th>
+                <th style="position:sticky;top:0;z-index:5;background:var(--surface)">Comercio</th>
+                <th style="position:sticky;top:0;z-index:5;background:var(--surface)">Categoría</th>
+                <th style="position:sticky;top:0;z-index:5;background:var(--surface);text-align:right">Monto</th>
+              </tr>
+            </thead>
+            <tbody id="txn-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+</div>
+
+<div class="cat-dd" id="cat-dd"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const CATS=[
+  {id:'food',          label:'Restaurantes',     emoji:'🍽️',color:'#f0845a'},
+  {id:'cafe',          label:'Café',             emoji:'☕', color:'#c8a46e'},
+  {id:'groceries',     label:'Supermercado',     emoji:'🛒', color:'#5af0c8'},
+  {id:'transport',     label:'Transporte',       emoji:'🚗', color:'#5ab4f0'},
+  {id:'health',        label:'Salud & Farmacia', emoji:'💊', color:'#f05ab4'},
+  {id:'subscriptions', label:'Suscripciones',    emoji:'📱', color:'#a05af0'},
+  {id:'shopping',      label:'Compras',          emoji:'🛍️', color:'#f0c85a'},
+  {id:'education',     label:'Educación',        emoji:'📚', color:'#5af05a'},
+  {id:'rent',          label:'Renta & Hogar',    emoji:'🏠', color:'#f05a5a'},
+  {id:'entertainment', label:'Entretenimiento',  emoji:'🎬', color:'#c8f05a'},
+  {id:'fitness',       label:'Fitness',          emoji:'🏋️', color:'#5af0a0'},
+  {id:'travel',        label:'Viajes',           emoji:'✈️', color:'#f0f05a'},
+  {id:'other',         label:'Otros',            emoji:'📦', color:'#6b6f7a'},
+];
+const CM=Object.fromEntries(CATS.map(c=>[c.id,c]));
+let ALL=[], REGULAR=[], MSI_LIST=[];
+}
+
+// FILE
+const dz=document.getElementById('drop-zone'), fi=document.getElementById('file-input');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('dragover'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f?.type==='application/pdf')go(f);});
+fi.addEventListener('change',e=>{const f=e.target.files[0];if(f)go(f);});
+
+function step(n,s){
+  const el=document.getElementById('step-'+n);el.className=s;
+  const ic=el.querySelector('.step-icon');
+  if(s==='active')ic.innerHTML='<div class="spinner"></div>';
+  else if(s==='done')ic.textContent='✓';
+  else ic.textContent=n;
+}
+
+async function go(file){
+  show('progress-screen');
+  step(1,'active');
+  const buf=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  let txt='';
+  for(let i=1;i<=pdf.numPages;i++){
+    const pg=await pdf.getPage(i);
+    const ct=await pg.getTextContent();
+    txt+=ct.items.map(x=>x.str).join(' ')+'\n';
+  }
+  step(1,'done');step(2,'active');
+  const {regular,msi}=parse(txt);
+  step(2,'done');step(3,'active');
+  const merchants=[...new Set(regular.map(t=>t.merchant))];
+  const cats=await aiCats(merchants);
+  regular.forEach(t=>{t.category=cats[t.merchant]||fallback(t.merchant);});
+  msi.forEach(t=>{t.category=cats[t.merchantClean]||fallback(t.merchantClean)||'shopping';});
+  step(3,'done');step(4,'active');
+  REGULAR=regular; MSI_LIST=msi; ALL=[...regular,...msi];
+  buildDash();
+  step(4,'done');
+  setTimeout(()=>show('dashboard-screen'),300);
+}
+
+function parse(text){
+  const regular=[],msi=[];
+  // Regular section
+  const rs=text.indexOf('CARGOS,COMPRAS Y ABONOS REGULARES');
+  const re=text.indexOf('TOTAL CARGOS');
+  if(rs!==-1){
+    const sec=text.substring(rs,re!==-1?re:text.length);
+    const rx=/(\d{2}-[a-z]{3}-\d{4})\s+(\d{2}-[a-z]{3}-\d{4})\s+(.+?)\s+([+-])\s*\$([0-9,]+\.\d{2})/gi;
+    let m;
+    while((m=rx.exec(sec))!==null){
+      const[,opDate,,rawDesc,sign,rawAmt]=m;
+      if(sign==='-')continue;
+      let merchant=rawDesc
+        .replace(/;\s*Tarjeta Digital \*+\d+/gi,'')
+        .replace(/MXP.*?TIPO DE CAMBIO.*$/gi,'')
+        .replace(/USD.*?TIPO DE CAMBIO.*$/gi,'')
+        .replace(/IVA.*$/gi,'')
+        .replace(/\s+/g,' ').trim();
+      if(/BMOVIL\.PAGO|PAGO TDC/i.test(merchant))continue;
+      if(/^\d{2} DE \d{2}/i.test(merchant))continue;
+      // Detect new MSI purchases in regular section (e.g. "MACSTORE SAN AGUSTIN A 18 MSI")
+      const msiMatch=merchant.match(/A\s+(\d+)\s+MSI$/i);
+      const isNewMSI=!!msiMatch;
+      const cleanMerchant=isNewMSI?merchant.replace(/\s+A\s+\d+\s+MSI$/i,'').trim():merchant;
+      regular.push({id:uid(),date:opDate,dateObj:pd(opDate),merchant:cleanMerchant,amount:parseFloat(rawAmt.replace(/,/g,'')),category:'other',isMSI:false,isNewMSI,msiMonths:isNewMSI?parseInt(msiMatch[1]):null});
+    }
+    regular.sort((a,b)=>b.dateObj-a.dateObj);
+  }
+  // MSI section
+  const ms=text.indexOf('COMPRAS Y CARGOS DIFERIDOS A MESES SIN INTERESES');
+  const me=text.indexOf('CARGOS,COMPRAS Y ABONOS REGULARES');
+  if(ms!==-1&&me!==-1&&ms<me){
+    const sec=text.substring(ms,me);
+    const rx=/(\d{2}-[a-z]{3}-\d{4})\s+(.+?)\s+\$([\d,]+\.\d{2})\s+\$([\d,]+\.\d{2})\s+\$([\d,]+\.\d{2})\s+(\d+)\s+de\s+(\d+)/gi;
+    let m;
+    while((m=rx.exec(sec))!==null){
+      const[,date,rawDesc,origR,pendR,payR,num,tot]=m;
+      let mc=rawDesc.replace(/;\s*Tarjeta Digital \*+\d+/gi,'').replace(/\s+/g,' ').trim();
+      if(!mc||mc.length<3)continue;
+      msi.push({id:uid(),date,dateObj:pd(date),merchant:mc+' (MSI)',merchantClean:mc,amount:parseFloat(payR.replace(/,/g,'')),pendingTotal:parseFloat(pendR.replace(/,/g,'')),originalAmount:parseFloat(origR.replace(/,/g,'')),installNum:parseInt(num),installTotal:parseInt(tot),category:'shopping',isMSI:true});
+    }
+  }
+  return{regular,msi};
+}
+
+function pd(s){
+  const mo={ene:0,feb:1,mar:2,abr:3,may:4,jun:5,jul:6,ago:7,sep:8,oct:9,nov:10,dic:11};
+  const[d,mn,y]=s.split('-');
+  return new Date(+y,mo[mn.toLowerCase()]??0,+d);
+}
+function uid(){return Math.random().toString(36).slice(2,10);}
+
+async function aiCats(merchants){
+  try{
+    const r=await fetch('/api/categorize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({merchants})});
+    const d=await r.json();
+    if(d.error) throw new Error(d.error);
+    return d.categories;
+  }catch(e){
+    console.warn('AI categorization unavailable:',e.message,'— using fallback rules');
+    const r={};merchants.forEach(m=>{r[m]=fallback(m);});return r;
+  }
+}
+
+function fallback(m){
+  const u=m.toUpperCase();
+  if(/UBER EATS|DLO\*UBER EATS/.test(u))return'food';
+  if(/UBER|DIDI/.test(u))return'transport';
+  if(/OXXO|7 ELEVEN|HEB|WALMART/.test(u))return'groceries';
+  if(/FARM|FARMACIA/.test(u))return'health';
+  if(/NETFLIX|SPOTIFY|GOOGLE TV|OPENAI|CHATGPT|CALENDLY|TELCEL|WHITEPAPER/.test(u))return'subscriptions';
+  if(/GYMPASS/.test(u))return'fitness';
+  if(/CAFE|COFFEE|CAFELIMON|CAFECACAO|KALI|LILACAFE|BREAD TEC/.test(u))return'cafe';
+  if(/REST|TACO|BURGER|GYRO|TEMAK|BARVIN|PHOLICIOS|HELADO|PASTELER|CHILAQUIL|NECTARJUICE|CARLS JR|FRIDA|SALA DE DESPECHO/.test(u))return'food';
+  if(/INMOBILIARIA/.test(u))return'rent';
+  if(/MACSTORE|APPLE/.test(u))return'shopping';
+  if(/AMAZON/.test(u))return'shopping';
+  if(/AEROBUS|AEROMEXICO|VOLARIS/.test(u))return'travel';
+  if(/ORATORIO|UNIV|CONSULTOR/.test(u))return'education';
+  return'other';
+}
+
+function buildDash(){
+  const total=REGULAR.reduce((s,t)=>s+t.amount,0);
+  const msiTotal=MSI_LIST.reduce((s,t)=>s+t.pendingTotal,0);
+
+  // Split regular into: new MSI purchases vs true cash charges
+  const newMSIPurchases=REGULAR.filter(t=>t.isNewMSI);
+  const cashCharges=REGULAR.filter(t=>!t.isNewMSI);
+  const newMSIAmount=newMSIPurchases.reduce((s,t)=>s+t.amount,0);
+  const cashAmount=cashCharges.reduce((s,t)=>s+t.amount,0);
+  // MSI monthly payments due this period (first installment of new + ongoing)
+  const msiMonthlyDue=MSI_LIST.reduce((s,t)=>s+t.amount,0);
+  // Payment to not generate interest = cash charges + MSI monthly payments
+  const payNoInterest=cashAmount+msiMonthlyDue;
+
+  if(REGULAR.length){
+    const dates=REGULAR.map(t=>t.dateObj).sort((a,b)=>a-b);
+    const fmt=d=>d.toLocaleDateString('es-MX',{day:'2-digit',month:'short'});
+    const lbl=`${fmt(dates[0])} — ${fmt(dates[dates.length-1])} 2026`;
+    document.getElementById('header-period').textContent=lbl;
+    document.getElementById('stat-period').textContent=lbl;
+  }
+
+  document.getElementById('stat-total').textContent=f$(total);
+  document.getElementById('pay-cash').textContent=f$(cashAmount);
+  document.getElementById('pay-new-msi').textContent=newMSIAmount>0?f$(newMSIAmount):'—';
+  document.getElementById('pay-no-interest').textContent=f$(payNoInterest);
+
+  // Show new-MSI detail line if there are new MSI purchases
+  if(newMSIPurchases.length>0){
+    const detail=newMSIPurchases.map(t=>`${t.merchant} (${t.msiMonths} meses · ${f$(t.amount/t.msiMonths)}/mes)`).join('  ·  ');
+    document.getElementById('pay-new-msi-detail').textContent=detail;
+    document.getElementById('pay-new-msi-detail-row').style.display='flex';
+  }
+
+  document.getElementById('stat-msi').textContent=f$(msiTotal);
+  document.getElementById('stat-msi-sub').textContent=`${MSI_LIST.length} compra${MSI_LIST.length!==1?'s':''} a meses activa${MSI_LIST.length!==1?'s':''}`;
+  document.getElementById('stat-count').textContent=REGULAR.length;
+  document.getElementById('stat-avg').textContent=f$(cashAmount/28);
+
+  // MSI breakdown
+  document.getElementById('msi-items').innerHTML=MSI_LIST.map(t=>`
+    <div class="msi-row">
+      <span class="msi-row-name" title="${t.merchantClean}">${t.merchantClean}</span>
+      <span class="msi-row-val">${f$(t.pendingTotal)}</span>
+    </div>`).join('');
+
+  // Cat totals
+  const ct={};
+  REGULAR.forEach(t=>{ct[t.category]=(ct[t.category]||0)+t.amount;});
+  const sorted=Object.entries(ct).sort((a,b)=>b[1]-a[1]).filter(([,v])=>v>0);
+
+  if(sorted.length){
+    const[tid,tamt]=sorted[0];const tc=CM[tid];
+    document.getElementById('stat-top').textContent=`${tc.emoji} ${tc.label}`;
+    document.getElementById('stat-top-amt').textContent=f$(tamt);
+  }
+
+  document.getElementById('cat-count').textContent=`${sorted.length} categorías`;
+
+  // Cat bars
+  document.getElementById('cat-list').innerHTML=sorted.map(([id,amt])=>{
+    const c=CM[id]||CM['other'];
+    const pct=(amt/total*100).toFixed(1);
+    return`<div class="cat-item" onclick="byCat('${id}')">
+      <div class="cat-row">
+        <div class="cat-name"><div class="cat-dot" style="background:${c.color}"></div>${c.emoji} ${c.label}</div>
+        <div><span class="cat-amount">${f$(amt)}</span><span class="cat-pct">${pct}%</span></div>
+      </div>
+      <div class="cat-bar-bg"><div class="cat-bar-fill" style="width:${pct}%;background:${c.color}"></div></div>
+    </div>`;
+  }).join('');
+
+  // Otros nudge
+  const otrosCount=REGULAR.filter(t=>t.category==='other').length;
+  const otrosSlot=document.getElementById('otros-nudge-slot');
+  if(otrosCount>0){
+    otrosSlot.innerHTML=`<div class="otros-nudge">
+      <span class="otros-nudge-icon">💡</span>
+      <span class="otros-nudge-text">
+        <strong>${otrosCount} transacción${otrosCount>1?'es':''} sin categoría</strong>
+        Haz clic en los badges <span style="color:#f0c85a">⚠️ Otros · categorizar</span> en la tabla para asignarles una categoría y mejorar tu desglose.
+      </span>
+    </div>`;
+  } else { otrosSlot.innerHTML=''; }
+
+  // Default sort active state
+  sortMode='amount';
+  document.getElementById('sort-amt').classList.add('active');
+  document.getElementById('sort-date').classList.remove('active');
+
+  // Cat filter
+  const sel=document.getElementById('cat-filter');
+  sel.innerHTML='<option value="">Todas las categorías</option>';
+  sorted.forEach(([id])=>{const c=CM[id];sel.innerHTML+=`<option value="${id}">${c.emoji} ${c.label}</option>`;});
+
+  renderTxns([...REGULAR,...MSI_LIST]);
+}
+
+// ── SORT STATE ────────────────────────────────────────────
+let sortMode='amount'; // 'amount' | 'date'
+
+function setSort(mode){
+  sortMode=mode;
+  document.getElementById('sort-amt').classList.toggle('active',mode==='amount');
+  document.getElementById('sort-date').classList.toggle('active',mode==='date');
+  filterTxns();
+}
+
+function renderTxns(txns){
+  // Apply sort
+  const sorted=[...txns];
+  if(sortMode==='amount') sorted.sort((a,b)=>b.amount-a.amount);
+  else sorted.sort((a,b)=>b.dateObj-a.dateObj);
+
+  document.getElementById('txn-count').textContent=`${sorted.length} movimientos`;
+  const tb=document.getElementById('txn-body');tb.innerHTML='';
+  sorted.forEach(t=>{
+    const c=CM[t.category]||CM['other'];
+    const isOther=t.category==='other';
+    const tr=document.createElement('tr');tr.className='txn-row';
+    tr.innerHTML=`
+      <td class="txn-date">${t.date}</td>
+      <td>${t.isMSI?t.merchantClean:t.merchant}${t.isMSI?'<span class="msi-tag">MSI</span>':''}${t.isNewMSI?`<span class="msi-tag" style="background:rgba(240,200,90,0.1);color:#f0c85a;border-color:rgba(240,200,90,0.25)">nueva MSI · ${t.msiMonths}m</span>`:''}</td>
+      <td>
+        <span class="cat-badge${isOther?' otros-warn':''}" onclick="openDD(event,'${t.id}')" style="color:${isOther?'#f0c85a':c.color}">
+          ${isOther?'⚠️':c.emoji} ${c.label}${isOther?' ·  categorizar':''}
+        </span>
+      </td>
+      <td class="txn-amount">${f$(t.amount)}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function filterTxns(){
+  const s=document.getElementById('search').value.toLowerCase();
+  const cf=document.getElementById('cat-filter').value;
+  const tf=document.getElementById('type-filter').value;
+  const txns=ALL.filter(t=>{
+    const ms=!s||t.merchant.toLowerCase().includes(s);
+    const mc=!cf||t.category===cf;
+    const mt=!tf||(tf==='msi'?t.isMSI:!t.isMSI);
+    return ms&&mc&&mt;
+  });
+  renderTxns(txns);
+}
+
+function byCat(id){
+  document.getElementById('cat-filter').value=id;
+  filterTxns();
+}
+
+function openDD(e,id){
+  e.stopPropagation();
+  const dd=document.getElementById('cat-dd');
+  dd.innerHTML=CATS.map(c=>`<div class="cat-opt" onclick="assignCat('${id}','${c.id}')" style="color:${c.color}">${c.emoji} ${c.label}</div>`).join('');
+  const r=e.target.getBoundingClientRect();
+  dd.style.display='block';
+  dd.style.top=`${r.bottom+5}px`;
+  dd.style.left=`${Math.min(r.left,window.innerWidth-195)}px`;
+}
+
+function assignCat(id,catId){
+  const t=ALL.find(x=>x.id===id);
+  if(!t){ document.getElementById('cat-dd').style.display='none'; return; }
+  t.category=catId;
+
+  // Rebuild cat bars + nudge without touching the active filter
+  const total=REGULAR.reduce((s,t)=>s+t.amount,0);
+  const ct={};
+  REGULAR.forEach(t=>{ct[t.category]=(ct[t.category]||0)+t.amount;});
+  const sorted=Object.entries(ct).sort((a,b)=>b[1]-a[1]).filter(([,v])=>v>0);
+  document.getElementById('cat-count').textContent=`${sorted.length} categorías`;
+  document.getElementById('cat-list').innerHTML=sorted.map(([cid,amt])=>{
+    const c=CM[cid]||CM['other'];
+    const pct=(amt/total*100).toFixed(1);
+    return`<div class="cat-item" onclick="byCat('${cid}')">
+      <div class="cat-row">
+        <div class="cat-name"><div class="cat-dot" style="background:${c.color}"></div>${c.emoji} ${c.label}</div>
+        <div><span class="cat-amount">${f$(amt)}</span><span class="cat-pct">${pct}%</span></div>
+      </div>
+      <div class="cat-bar-bg"><div class="cat-bar-fill" style="width:${pct}%;background:${c.color}"></div></div>
+    </div>`;
+  }).join('');
+
+  // Update or clear the nudge
+  const otrosLeft=REGULAR.filter(x=>x.category==='other').length;
+  const slot=document.getElementById('otros-nudge-slot');
+  if(otrosLeft>0){
+    slot.innerHTML=`<div class="otros-nudge">
+      <span class="otros-nudge-icon">💡</span>
+      <span class="otros-nudge-text">
+        <strong>${otrosLeft} transacción${otrosLeft>1?'es':''} sin categoría</strong>
+        Haz clic en los badges <span style="color:#f0c85a">⚠️ Otros · categorizar</span> en la tabla para asignarles una categoría.
+      </span>
+    </div>`;
+  } else {
+    slot.innerHTML='';
+    // All done — if we were filtering by 'other', reset to show all
+    if(document.getElementById('cat-filter').value==='other'){
+      document.getElementById('cat-filter').value='';
+    }
+    toast('✅ ¡Todas las transacciones están categorizadas!');
+  }
+
+  // Re-run filter (preserves whatever filter is active)
+  filterTxns();
+  toast(`✓ ${CM[catId].label}`);
+  document.getElementById('cat-dd').style.display='none';
+}
+
+document.addEventListener('click',()=>{document.getElementById('cat-dd').style.display='none';});
+
+function f$(n){return new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',minimumFractionDigits:0,maximumFractionDigits:0}).format(n);}
+
+function show(id){
+  ['upload-screen','progress-screen','dashboard-screen'].forEach(s=>{
+    const el=document.getElementById(s);
+    el.style.display=s===id?(s==='dashboard-screen'?'block':'flex'):'none';
+  });
+}
+
+function toast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2000);
+}
+
+function resetApp(){
+  ALL=[];REGULAR=[];MSI_LIST=[];
+  document.getElementById('file-input').value='';
+  [1,2,3,4].forEach(n=>{const el=document.getElementById('step-'+n);el.className='';el.querySelector('.step-icon').textContent=n;});
+  show('upload-screen');
+}
+</script>
+</body>
+</html>
