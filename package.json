@@ -1,0 +1,12 @@
+{
+  "name": "finanzas-app",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint api/"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "@eslint/js": "^9.0.0"
+  }
+}
